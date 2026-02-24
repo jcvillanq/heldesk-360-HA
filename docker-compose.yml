@@ -1,0 +1,55 @@
+# ===================================================
+# Helpdesk 360 - docker-compose.yml
+# ===================================================
+
+services:
+  # ---- Base de datos ----
+  mariadb:
+    image: mariadb:11
+    container_name: hd360_mariadb
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - backend    
+  # ---- GLPI ----
+  glpi:
+    image: diouxx/glpi:latest
+    container_name: hd360-glpi
+    ports:
+      - "80:80"
+    volumes:
+      - glpi_data:/var/www/html/glpi
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    environment:
+      TIMEZONE: ${TIMEZONE}
+    restart: unless-stopped
+    networks:
+      - frontend
+      - backend
+# ---- Redes ----
+networks:
+  frontend:
+    driver: bridge
+    # servicios accesibles desde el exterior
+  backend:
+    driver: bridge
+    # servicios solo accesibles entre ellos(comunicacion entre bbdd, ldap, IA, etc )
+# ---- Volumenes ----
+volumes:
+  mariadb_data:
+    #datos persistentes de MariaDB, sobreviven a docker-compose down 
+  glpi_data:
+    #datos persistentes de GLPI, sobreviven a docker-compose down     
