@@ -1,0 +1,22 @@
+# ===================================================
+# Grafana - Provisioning de Datasources
+# ===================================================
+# Este archivo se lee al arrancar Grafana y configura
+# automáticamente Prometheus como fuente de datos.
+#
+# Sin este archivo, tendrías que ir a Grafana > Settings >
+# Data Sources > Add > Prometheus y configurarlo a mano
+# cada vez que recreas el contenedor.
+#
+# Con provisioning, está listo desde el primer arranque.
+# ===================================================
+
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy           # Grafana hace las queries al backend (no el navegador)
+    url: http://prometheus:9090    # Nombre del servicio en Docker (DNS interno)
+    isDefault: true         # Datasource por defecto para nuevos dashboards
+    editable: true          # Permitir editar desde la UI (útil para pruebas)

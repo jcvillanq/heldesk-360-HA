@@ -1,0 +1,68 @@
+# ===================================================
+# Prometheus - Configuración de scraping
+# ===================================================
+# Prometheus funciona con modelo "pull": cada X segundos
+# va a cada target y le pide sus métricas via HTTP GET /metrics.
+#
+# Cada "job_name" es un grupo de targets con la misma función.
+# ===================================================
+
+global:
+  # Cada 15 segundos Prometheus recoge métricas de todos los targets.
+  # En producción podrías bajar a 30s para reducir carga.
+  scrape_interval: 15s
+
+  # Cada 15 segundos evalúa las reglas de alerta.
+  evaluation_interval: 15s
+
+# ---- Reglas de alerta ----
+# Archivo externo donde se definen las condiciones de alerta
+# (ej: CPU > 80% durante 5 min → alerta)
+rule_files:
+  - "alerts.yml"
+
+# ---- Conexión con Alertmanager ----
+# Cuando una regla de alerta se cumple, Prometheus envía
+# la alerta a Alertmanager para que la gestione (agrupe,
+# deduplique y envíe notificaciones).
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - "alertmanager:9093"
+
+# ---- Targets de scraping ----
+# Cada job define un grupo de endpoints donde Prometheus
+# recoge métricas. Los nombres de host son los nombres
+# de los servicios en docker-compose (DNS interno de Docker).
+scrape_configs:
+
+  # Métricas del propio Prometheus (uso de memoria, queries, etc.)
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["prometheus:9090"]
+
+  # Métricas del sistema operativo host (CPU, RAM, disco, red)
+  # Fuente: contenedor node-exporter
+  - job_name: "node-exporter"
+    static_configs:
+      - targets: ["node-exporter:9100"]
+
+  # Métricas de cada contenedor Docker (CPU, RAM, I/O por contenedor)
+  # Fuente: contenedor cAdvisor
+  - job_name: "cadvisor"
+    static_configs:
+      - targets: ["cadvisor:8080"]
+
+  # FUTURO: Métricas de MariaDB (queries/s, conexiones, buffer pool)
+  # Descomentar cuando se despliegue mysqld-exporter
+  # - job_name: "mariadb"
+  #   static_configs:
+  #     - targets: ["mysqld-exporter:9104"]
+
+  # FUTURO: Métricas del middleware IA (latencia, tokens, coste)
+  # El middleware PHP expondrá métricas en /metrics
+  # - job_name: "middleware-ia"
+  #   static_configs:
+  #     - targets: ["middleware-ia:8000"]
+  #   metrics_path: "/metrics"

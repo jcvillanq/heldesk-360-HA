@@ -1,0 +1,87 @@
+# ===================================================
+# Prometheus - Reglas de Alerta
+# ===================================================
+# Cada regla tiene:
+#   - alert: nombre de la alerta
+#   - expr: expresión PromQL que evalúa la condición
+#   - for: cuánto tiempo debe cumplirse ANTES de disparar
+#   - labels: metadatos (severity se usa para routing en Alertmanager)
+#   - annotations: texto legible que aparece en la notificación
+#
+# Prometheus evalúa estas reglas cada 15s (evaluation_interval).
+# Si la condición se cumple durante el tiempo "for", envía
+# la alerta a Alertmanager.
+# ===================================================
+
+groups:
+  # ---- Alertas de infraestructura (host) ----
+  - name: infraestructura
+    rules:
+
+      # CPU del host por encima del 80% durante 5 minutos
+      - alert: HostHighCpuUsage
+        expr: 100 - (avg(rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "CPU del host por encima del 80%"
+          description: "El uso de CPU lleva más de 5 minutos por encima del 80%. Valor actual: {{ $value | printf \"%.1f\" }}%"
+
+      # Memoria del host por encima del 85%
+      - alert: HostHighMemoryUsage
+        expr: (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Memoria del host por encima del 85%"
+          description: "Uso de memoria: {{ $value | printf \"%.1f\" }}%"
+
+      # Disco del host con menos del 15% libre
+      - alert: HostDiskSpaceLow
+        expr: (1 - node_filesystem_avail_bytes{fstype!="tmpfs"} / node_filesystem_size_bytes{fstype!="tmpfs"}) * 100 > 85
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Disco casi lleno (>85% usado)"
+          description: "Partición {{ $labels.mountpoint }} al {{ $value | printf \"%.1f\" }}% de uso"
+
+  # ---- Alertas de contenedores ----
+  - name: contenedores
+    rules:
+
+      # Un contenedor se ha reiniciado más de 3 veces en 15 minutos
+      - alert: ContainerRestartingTooOften
+        expr: increase(container_restart_count[15m]) > 3
+        for: 0m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Contenedor reiniciándose continuamente"
+          description: "El contenedor {{ $labels.name }} se ha reiniciado {{ $value }} veces en 15 min"
+
+      # Un contenedor usando más del 90% de su límite de memoria
+      - alert: ContainerHighMemory
+        expr: container_memory_usage_bytes{name=~".+"} / container_spec_memory_limit_bytes{name=~".+"} * 100 > 90
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Contenedor usando >90% de su memoria asignada"
+          description: "{{ $labels.name }} está al {{ $value | printf \"%.1f\" }}% de su límite de memoria"
+
+  # ---- Alertas de servicios ----
+  - name: servicios
+    rules:
+
+      # Prometheus no puede alcanzar un target (servicio caído)
+      - alert: TargetDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Servicio caído: {{ $labels.job }}"
+          description: "Prometheus no puede conectarse a {{ $labels.instance }} del job {{ $labels.job }}"

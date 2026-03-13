@@ -1,0 +1,63 @@
+# ===================================================
+# Alertmanager - Configuración
+# ===================================================
+# Alertmanager recibe alertas de Prometheus y las gestiona:
+#   1. Agrupa alertas similares (para no spamear)
+#   2. Deduplica alertas repetidas
+#   3. Aplica silencios (si los has configurado)
+#   4. Envía notificaciones por los canales configurados
+#
+# EN LOCAL: Las alertas se reciben y se ven en la UI web
+# (alertmanager.hd360.local) pero no se envían por email/Telegram.
+#
+# EN PRODUCCIÓN: Descomentar las secciones de email y Telegram.
+# ===================================================
+
+global:
+  resolve_timeout: 5m
+
+route:
+  # Receptor por defecto (a dónde van las alertas que no coinciden con ninguna ruta)
+  receiver: "local-web-only"
+
+  # Agrupar alertas por estas etiquetas (alertas del mismo grupo → un solo mensaje)
+  group_by: ["alertname", "severity"]
+
+  # Esperar 30s antes de enviar un grupo (por si llegan más alertas del mismo grupo)
+  group_wait: 30s
+
+  # Si llegan nuevas alertas del mismo grupo, esperar 5 min antes de reenviar
+  group_interval: 5m
+
+  # Repetir una alerta no resuelta cada 4 horas
+  repeat_interval: 4h
+
+  # PRODUCCIÓN: Rutas por severidad
+  # routes:
+  #   - match:
+  #       severity: critical
+  #     receiver: "email-y-telegram"
+  #   - match:
+  #       severity: warning
+  #     receiver: "solo-telegram"
+
+receivers:
+  # En local: Alertmanager guarda las alertas pero no envía nada.
+  # Las ves en la UI web: http://alertmanager.hd360.local
+  - name: "local-web-only"
+
+  # PRODUCCIÓN: Descomentar para activar notificaciones
+  # - name: "email-y-telegram"
+  #   email_configs:
+  #     - to: "equipo@helpdesk360.com"
+  #       from: "alertas@helpdesk360.com"
+  #       smarthost: "smtp.gmail.com:587"
+  #       auth_username: "alertas@helpdesk360.com"
+  #       auth_password: "app-password-de-gmail"
+  #       require_tls: true
+  #   webhook_configs:
+  #     - url: "https://api.telegram.org/bot<TOKEN>/sendMessage?chat_id=<CHAT_ID>"
+
+  # - name: "solo-telegram"
+  #   webhook_configs:
+  #     - url: "https://api.telegram.org/bot<TOKEN>/sendMessage?chat_id=<CHAT_ID>"

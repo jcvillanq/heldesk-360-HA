@@ -1,21 +1,39 @@
+# ===================================================
+# HelpDesk 360 - .gitignore
+# ===================================================
 
-# *****************************************
-# Variables de entorno 
-# *****************************************
-
+# ---- Credenciales y secretos ----
 .env
+*.key
+*.pem
+*.crt
+acme.json
 
-# *****************************************
-# Datos de contenedores
-# *****************************************
-mariadb-data/
-glpi-data/
+# ---- Sistema operativo ----
+.DS_Store
+Thumbs.db
+Desktop.ini
 
-
-# *****************************************
-# Sistema operativo
-# *****************************************
-
-
-# IDE
+# ---- IDEs ----
 .vscode/
+.idea/
+*.swp
+*.swo
+
+# ---- Python (si usas scripts) ----
+__pycache__/
+*.pyc
+venv/
+
+# ---- Node (si usas herramientas JS) ----
+node_modules/
+
+# ---- Docker (datos locales que NO van a Git) ----
+# Los named volumes NO aparecen en tu carpeta de proyecto,
+# así que no necesitan estar aquí. Pero si usas bind mounts
+# para datos, añádelos aquí.
+
+# ---- Backups locales ----
+*.sql.gz
+*.sql.gpg
+backups/

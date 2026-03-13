@@ -1,11 +1,105 @@
 # ===================================================
-# Helpdesk 360 - docker-compose.yml
+# HelpDesk 360 - docker-compose.yml
+# ENTORNO: LOCAL (Docker Desktop en Windows)
+# ===================================================
+#
+# Este archivo levanta TODA la infraestructura en tu portátil.
+# No necesitas Oracle Cloud, ni dominio real, ni Let's Encrypt.
+#
+# Acceso a los servicios (añade estas líneas a tu archivo hosts):
+#   127.0.0.1  glpi.hd360.local
+#   127.0.0.1  traefik.hd360.local
+#   127.0.0.1  ldap.hd360.local
+#   127.0.0.1  grafana.hd360.local
+#   127.0.0.1  prometheus.hd360.local
+#   127.0.0.1  alertmanager.hd360.local
+#
+# En Windows el archivo hosts está en:
+#   C:\Windows\System32\drivers\etc\hosts
+# (Ábrelo con Notepad como administrador para editarlo)
+#
+# Levantar:   docker compose up -d
+# Ver estado:  docker compose ps
+# Ver logs:    docker compose logs -f [servicio]
+# Parar:       docker compose down
+# Parar + borrar datos: docker compose down -v (¡CUIDADO!)
 # ===================================================
 
+
 services:
-  # ---- Base de datos ----
+
+  # ==========================================================
+  # 0. SOCKET PROXY - Acceso seguro al daemon Docker
+  # ==========================================================
+  # Traefik se conecta a este proxy (no al socket directamente).
+  # Solo expone los endpoints necesarios para el autodescubrimiento.
+  # ==========================================================
+  socket-proxy:
+    image: tecnativa/docker-socket-proxy:latest
+    container_name: hd360_socket_proxy
+    environment:
+      - CONTAINERS=1
+      - NETWORKS=1
+      - SERVICES=1
+      - INFO=1
+      - VERSION=1
+      - EVENTS=1
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    restart: unless-stopped
+    networks:
+      - socket-proxy
+
+  # ==========================================================
+  # 1. TRAEFIK v2 - Reverse Proxy (MODO LOCAL)
+  # ==========================================================
+  # En local, Traefik funciona en modo HTTP (sin TLS/Let's Encrypt).
+  # Enruta el tráfico por nombre de dominio usando el archivo hosts.
+  # Cuando migres a cloud, solo cambiarás:
+  #   - Activar entrypoint websecure (443)
+  #   - Añadir certificatesresolvers para Let's Encrypt
+  #   - Cambiar los dominios .hd360.local por tu dominio real
+  # ==========================================================
+  traefik:
+    image: traefik:v2.11
+    container_name: hd360_traefik
+    depends_on:
+      - socket-proxy
+    command:
+      - "--api.dashboard=true"
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.endpoint=tcp://socket-proxy:2375"
+      - "--entrypoints.web.address=:80"
+      - "--log.level=DEBUG"
+      - "--accesslog=true"
+    ports:
+      - "80:80"
+      - "8080:8080"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.traefik-dashboard.rule=Host(`traefik.hd360.local`)"
+      - "traefik.http.routers.traefik-dashboard.entrypoints=web"
+      - "traefik.http.routers.traefik-dashboard.service=api@internal"
+    restart: unless-stopped
+    networks:
+      - frontend
+      - socket-proxy
+
+
+  # ==========================================================
+  # 2. MARIADB - Base de Datos
+  # ==========================================================
+  # Almacena todo: las ~300 tablas de GLPI + las 3 tablas custom
+  # del módulo IA (hd360_ai_interactions, hd360_ai_suggestions,
+  # hd360_ai_config) que se crearán mediante init script.
+  #
+  # Solo accesible desde la red backend.
+  # Puerto 3306 NO se expone al host (seguridad por diseño).
+  # ==========================================================
   mariadb:
-    image: mariadb:11
+    image: mariadb:11.7
     container_name: hd360_mariadb
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
@@ -14,6 +108,10 @@ services:
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
     volumes:
       - mariadb_data:/var/lib/mysql
+      # Scripts SQL en esta carpeta se ejecutan automáticamente
+      # la PRIMERA vez que arranca el contenedor (solo si la BD está vacía).
+      # Aquí irá el script que crea las tablas hd360_ai_*.
+      # - ./init/hd360_tables.sql:/docker-entrypoint-initdb.d/hd360_tables.sql
     healthcheck:
       test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
       interval: 10s
@@ -21,13 +119,20 @@ services:
       retries: 5
     restart: unless-stopped
     networks:
-      - backend    
-  # ---- GLPI ----
+      - backend
+
+
+  # ==========================================================
+  # 3. GLPI - Sistema de Gestión de Incidencias
+  # ==========================================================
+  # El corazón funcional del proyecto.
+  # Ya NO tiene "ports:" - Traefik enruta el tráfico via labels.
+  # Está en frontend (para recibir tráfico) y backend (para
+  # conectarse a MariaDB y OpenLDAP).
+  # ==========================================================
   glpi:
     image: diouxx/glpi:latest
-    container_name: hd360-glpi
-    ports:
-      - "80:80"
+    container_name: hd360_glpi
     volumes:
       - glpi_data:/var/www/html/glpi
     depends_on:
@@ -35,21 +140,253 @@ services:
         condition: service_healthy
     environment:
       TIMEZONE: ${TIMEZONE}
+    labels:
+      - "traefik.enable=true"
+      # Cuando alguien accede a glpi.hd360.local → Traefik envía aquí
+      - "traefik.http.routers.glpi.rule=Host(`glpi.hd360.local`)"
+      - "traefik.http.routers.glpi.entrypoints=web"
+      - "traefik.http.services.glpi.loadbalancer.server.port=80"
+      - "traefik.docker.network=heldesk-360-ha_frontend"
     restart: unless-stopped
     networks:
       - frontend
       - backend
-# ---- Redes ----
+
+
+  # ==========================================================
+  # 4. OPENLDAP - Directorio de Autenticación Centralizada
+  # ==========================================================
+  # Todos los usuarios se crean aquí UNA sola vez.
+  # GLPI, Grafana y el futuro portal web autentican contra LDAP.
+  #
+  # Estructura del árbol LDAP:
+  #   dc=helpdesk360,dc=local          ← Raíz
+  #   ├── ou=usuarios                  ← Usuarios finales
+  #   ├── ou=tecnicos                  ← Técnicos N1 y N2
+  #   ├── ou=admins                    ← Administradores
+  #   └── ou=groups                    ← Grupos de permisos
+  #       ├── cn=admins
+  #       ├── cn=tecnicos_n1
+  #       ├── cn=tecnicos_n2
+  #       └── cn=usuarios
+  # ==========================================================
+  openldap:
+    image: osixia/openldap:1.5.0
+    container_name: hd360_openldap
+    environment:
+      LDAP_ORGANISATION: "HelpDesk 360"
+      LDAP_DOMAIN: ${LDAP_DOMAIN}
+      LDAP_ADMIN_PASSWORD: ${LDAP_ADMIN_PASSWORD}
+      # En local desactivamos TLS (no tenemos certificados reales).
+      # En producción → LDAP_TLS: "true"
+      LDAP_TLS: "false"
+    volumes:
+      - ldap_data:/var/lib/ldap
+      - ldap_config:/etc/ldap/slapd.d
+      # Para cargar usuarios iniciales automáticamente:
+      # - ./ldap/init:/container/service/slapd/assets/config/bootstrap/ldif/custom
+    healthcheck:
+      test: ["CMD", "ldapsearch", "-x", "-H", "ldap://localhost", "-b", "dc=helpdesk360,dc=local", "-D", "cn=admin,dc=helpdesk360,dc=local", "-w", "${LDAP_ADMIN_PASSWORD}"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - backend
+
+
+  # ==========================================================
+  # 5. phpLDAPadmin - Interfaz Web para Gestionar LDAP
+  # ==========================================================
+  # Panel gráfico para crear/editar usuarios y grupos en LDAP.
+  # En producción estará protegido por VPN WireGuard.
+  # ==========================================================
+  phpldapadmin:
+    image: osixia/phpldapadmin:0.9.0
+    container_name: hd360_phpldapadmin
+    environment:
+      PHPLDAPADMIN_LDAP_HOSTS: openldap
+      PHPLDAPADMIN_HTTPS: "false"
+    depends_on:
+      openldap:
+        condition: service_healthy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.ldapadmin.rule=Host(`ldap.hd360.local`)"
+      - "traefik.http.routers.ldapadmin.entrypoints=web"
+      - "traefik.http.services.ldapadmin.loadbalancer.server.port=80"
+    restart: unless-stopped
+    networks:
+      - frontend
+      - backend
+
+
+  # ==========================================================
+  # 6. PROMETHEUS - Recolector de Métricas
+  # ==========================================================
+  # Servidor de series temporales. Cada 15s va a cada "target"
+  # y le pide sus métricas (modelo "pull").
+  #
+  # Targets (definidos en prometheus.yml):
+  #   - node-exporter:9100  → métricas del sistema (CPU, RAM, disco)
+  #   - cadvisor:8080       → métricas de contenedores Docker
+  #   - prometheus:9090     → métricas de sí mismo
+  # ==========================================================
+  prometheus:
+    image: prom/prometheus:v3.2.1
+    container_name: hd360_prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=15d"
+      - "--web.console.libraries=/usr/share/prometheus/console_libraries"
+      - "--web.console.templates=/usr/share/prometheus/consoles"
+      - "--web.enable-lifecycle"
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus_data:/prometheus
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.prometheus.rule=Host(`prometheus.hd360.local`)"
+      - "traefik.http.routers.prometheus.entrypoints=web"
+      - "traefik.http.services.prometheus.loadbalancer.server.port=9090"
+    restart: unless-stopped
+    networks:
+      - monitoring
+      - frontend
+
+
+  # ==========================================================
+  # 7. GRAFANA - Dashboards y Visualización
+  # ==========================================================
+  # Se conecta a Prometheus como datasource y muestra
+  # dashboards con gráficos en tiempo real.
+  #
+  # Login por defecto: admin / admin (te pide cambiarlo)
+  # En producción se integrará con LDAP para SSO.
+  # ==========================================================
+  grafana:
+    image: grafana/grafana:11.5.2
+    container_name: hd360_grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_SERVER_ROOT_URL: "http://grafana.hd360.local"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      # Provisioning: configura Prometheus como datasource automáticamente.
+      # Al arrancar, Grafana ya tiene Prometheus conectado sin hacer nada a mano.
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.grafana.rule=Host(`grafana.hd360.local`)"
+      - "traefik.http.routers.grafana.entrypoints=web"
+      - "traefik.http.services.grafana.loadbalancer.server.port=3000"
+    restart: unless-stopped
+    networks:
+      - monitoring
+      - frontend
+
+
+  # ==========================================================
+  # 8. NODE EXPORTER - Métricas del Sistema Operativo
+  # ==========================================================
+  # Expone métricas del host: CPU, memoria, disco, red, uptime.
+  # Prometheus le hace scrape cada 15s en el puerto 9100.
+  # ==========================================================
+  node-exporter:
+    image: prom/node-exporter:v1.9.0
+    container_name: hd360_node_exporter
+    command:
+      - "--path.rootfs=/host"
+    volumes:
+      # En Docker Desktop (Windows/macOS) no se puede montar /
+      # Montamos solo /proc y /sys que es lo que realmente necesita
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+    restart: unless-stopped
+    networks:
+      - monitoring
+
+  # ==========================================================
+  # 9. cADVISOR - Métricas de Contenedores Docker
+  # ==========================================================
+  # Expone métricas de cada contenedor: CPU, RAM, red, I/O disco.
+  # Prometheus le hace scrape en el puerto 8080.
+  # ==========================================================
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.51.0
+    container_name: hd360_cadvisor
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+    restart: unless-stopped
+    networks:
+      - monitoring
+
+
+  # ==========================================================
+  # 10. ALERTMANAGER - Gestión de Alertas
+  # ==========================================================
+  # Prometheus detecta problemas (via alerts.yml) y envía las
+  # alertas a Alertmanager. Alertmanager las agrupa, deduplica
+  # y las envía por email/Telegram.
+  #
+  # En local funciona sin enviar notificaciones reales.
+  # En producción se añadirá SMTP y webhook de Telegram.
+  # ==========================================================
+  alertmanager:
+    image: prom/alertmanager:v0.28.1
+    container_name: hd360_alertmanager
+    command:
+      - "--config.file=/etc/alertmanager/alertmanager.yml"
+      - "--storage.path=/alertmanager"
+    volumes:
+      - ./monitoring/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager_data:/alertmanager
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.alertmanager.rule=Host(`alertmanager.hd360.local`)"
+      - "traefik.http.routers.alertmanager.entrypoints=web"
+      - "traefik.http.services.alertmanager.loadbalancer.server.port=9093"
+    restart: unless-stopped
+    networks:
+      - monitoring
+      - frontend
+
+
+# ==========================================================
+# REDES
+# ==========================================================
 networks:
+  socket-proxy:
+    driver: bridge
+    # Canal privado entre Traefik y el socket-proxy (aislado del resto)
+
   frontend:
     driver: bridge
-    # servicios accesibles desde el exterior
+    # Traefik, GLPI, phpLDAPadmin, Grafana, Prometheus, Alertmanager
+
   backend:
     driver: bridge
-    # servicios solo accesibles entre ellos(comunicacion entre bbdd, ldap, IA, etc )
-# ---- Volumenes ----
+    # MariaDB, OpenLDAP, GLPI, phpLDAPadmin, (futuro: middleware IA, Ollama, Redis)
+
+  monitoring:
+    driver: bridge
+    # Prometheus, Grafana, Node Exporter, cAdvisor, Alertmanager
+
+
+# ==========================================================
+# VOLÚMENES
+# ==========================================================
 volumes:
-  mariadb_data:
-    #datos persistentes de MariaDB, sobreviven a docker-compose down 
-  glpi_data:
-    #datos persistentes de GLPI, sobreviven a docker-compose down     
+  mariadb_data:         # Base de datos GLPI
+  glpi_data:            # Archivos GLPI (plugins, uploads)
+  ldap_data:            # Datos del directorio LDAP
+  ldap_config:          # Configuración OpenLDAP
+  prometheus_data:      # Series temporales de métricas
+  grafana_data:         # Dashboards y preferencias
+  alertmanager_data:    # Estado de alertas
