@@ -172,6 +172,10 @@ services:
         condition: service_healthy
     environment:
       TIMEZONE: ${TIMEZONE}
+      MARIADB_HOST: mariadb
+      MARIADB_DATABASE: ${MYSQL_DATABASE}
+      MARIADB_USER: ${MYSQL_USER}
+      MARIADB_PASSWORD: ${MYSQL_PASSWORD}
     labels:
       - "traefik.enable=true"
       # Cuando alguien accede a glpi.hd360.local → Traefik envía aquí
