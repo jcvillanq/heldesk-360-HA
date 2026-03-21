@@ -1,0 +1,49 @@
+{
+  "server": {
+    "privateKey": "qDVHe6AMTGfgy5ua7h7OiMRYRJq4Kuhq1qSCJe8pY3w=",
+    "publicKey": "9WFXncqB7gQ8SioClWYbzBIAJojJQORu6knI3mCB/TE=",
+    "address": "10.8.0.1"
+  },
+  "clients": {
+    "07433fcb-4dbb-420e-9a94-071d5674ed5e": {
+      "name": "Ramon",
+      "address": "10.8.0.2",
+      "privateKey": "GC5IzWQUKk/vFO4y5LRBnF5Z9Kow/rzZRXR310u0hH4=",
+      "publicKey": "SbKgcUpjHGccpyqYcBvaxsVhe82MJxaoZuJu80BIZk4=",
+      "preSharedKey": "dyfG12suVWnsMGmCj9DfCaxBBfqh9n1oAnutJvwDt8g=",
+      "createdAt": "2026-03-19T18:05:30.981Z",
+      "updatedAt": "2026-03-19T18:05:33.484Z",
+      "enabled": true
+    },
+    "655c6965-fdb7-4c70-83cf-7177b1e1e6d3": {
+      "name": "JuanCarlos",
+      "address": "10.8.0.3",
+      "privateKey": "oPkzKrgDxUBAkyn/qxINbrsa3D6n4aliG/SnA++oWm4=",
+      "publicKey": "LfjWvpwzSicPraDy4J16nafZH+a+thmsNpe0XeyW3Qk=",
+      "preSharedKey": "GX4bNVE5ouEHkkYaxV21kN7w7cnDURq80TJoeH0WwJ0=",
+      "createdAt": "2026-03-19T18:25:59.893Z",
+      "updatedAt": "2026-03-19T18:25:59.893Z",
+      "enabled": true
+    },
+    "dad1e43a-d2f0-4a26-bcd2-aa1000146ada": {
+      "name": "Antonio",
+      "address": "10.8.0.4",
+      "privateKey": "2KqoChBVfFwqpP1OOvbawTQmyxguP3oB1mfgdwmdMFA=",
+      "publicKey": "pK13UbOSs0loaV2zXV/nZnJz8g/cj7joFkEMEjuvZCQ=",
+      "preSharedKey": "B3lc51F3vlFQ7gjOtMN/nnpCGeTUqCcFAhD8uXNN2cQ=",
+      "createdAt": "2026-03-19T18:26:08.955Z",
+      "updatedAt": "2026-03-19T18:26:08.955Z",
+      "enabled": true
+    },
+    "ac2463a7-b051-43b8-a2dd-b072b25402eb": {
+      "name": "JuanManuel",
+      "address": "10.8.0.5",
+      "privateKey": "0G526xtf6qhu+ZmbrH5A+D9/JplTortkgFO0F4KVnV4=",
+      "publicKey": "VVSxyU6FeWSLvJ1egfFG74oB3vOU0AZ8pJ9YgXvbPCI=",
+      "preSharedKey": "KPqjlb2Ljc3qdzkY96ui5c7awqc770nDp5pC3LJoPvk=",
+      "createdAt": "2026-03-19T18:26:55.497Z",
+      "updatedAt": "2026-03-19T18:26:55.497Z",
+      "enabled": true
+    }
+  }
+}

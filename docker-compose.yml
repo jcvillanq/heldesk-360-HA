@@ -50,6 +50,30 @@ services:
     networks:
       - socket-proxy
 
+  wg-easy:
+    image: weejewel/wg-easy
+    container_name: wg-easy
+    environment:
+      - WG_HOST= 10.10.0.0/24  # Cambiar por tu IP/Dominio
+      - PASSWORD=admin
+    volumes:
+      - ./wireguard:/etc/wireguard
+    ports:
+      - "51820:51820/udp"
+      - "51821:51821/tcp" # Interfaz web
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.wg-easy.rule=Host(`traefik.hd360.local`)"
+      - "traefik.http.routers.wg-easy.entrypoints=websecure"
+      - "traefik.http.routers.wg-easy.tls.certresolver=myresolver"
+      - "traefik.http.services.wg-easy.loadbalancer.server.port=51821"
+    sysctls:
+      - net.ipv4.conf.all.src_valid_mark=1
+      - net.ipv4.ip_forward=1
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
   # ==========================================================
   # 1. TRAEFIK v2 - Reverse Proxy (MODO LOCAL)
   # ==========================================================
@@ -112,6 +136,9 @@ services:
       # la PRIMERA vez que arranca el contenedor (solo si la BD está vacía).
       # Aquí irá el script que crea las tablas hd360_ai_*.
       # - ./init/hd360_tables.sql:/docker-entrypoint-initdb.d/hd360_tables.sql
+      - type: bind
+        source: mariadb/scripts
+        target: /mariadb/scripts
     healthcheck:
       test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
       interval: 10s
