@@ -7,12 +7,13 @@
 # No necesitas Oracle Cloud, ni dominio real, ni Let's Encrypt.
 #
 # Acceso a los servicios (añade estas líneas a tu archivo hosts):
-#   127.0.0.1  glpi.hd360.local
-#   127.0.0.1  traefik.hd360.local
-#   127.0.0.1  ldap.hd360.local
-#   127.0.0.1  grafana.hd360.local
-#   127.0.0.1  prometheus.hd360.local
-#   127.0.0.1  alertmanager.hd360.local
+#   127.0.0.1  infraticket-glpi.local
+#   127.0.0.1  infraticket-traefik.local
+#   127.0.0.1  infraticket-ldap.local
+#   127.0.0.1  infraticket-grafana.local
+#   127.0.0.1  infraticket-prometheus.local
+#   127.0.0.1  infraticket-alertmanager.local
+#   127.0.0.1  infraticket-wireguard.local
 #
 # En Windows el archivo hosts está en:
 #   C:\Windows\System32\drivers\etc\hosts
@@ -34,9 +35,10 @@ services:
   # Traefik se conecta a este proxy (no al socket directamente).
   # Solo expone los endpoints necesarios para el autodescubrimiento.
   # ==========================================================
-  socket-proxy:
+  infraticket.socket-proxy:
     image: tecnativa/docker-socket-proxy:latest
     container_name: hd360_socket_proxy
+    hostname: infraticket-socket-proxy
     environment:
       - CONTAINERS=1
       - NETWORKS=1
@@ -56,7 +58,7 @@ services:
          memory: 30M
 
 
-  wg-easy:
+  infraticket.wg-easy:
     image: weejewel/wg-easy
     container_name: wg-easy
     environment:
@@ -66,13 +68,11 @@ services:
       - ./wireguard:/etc/wireguard
     ports:
       - "51820:51820/udp"
-      - "51821:51821/tcp" # Interfaz web
     restart: unless-stopped
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.wg-easy.rule=Host(`traefik.hd360.local`)"
-      - "traefik.http.routers.wg-easy.entrypoints=websecure"
-      - "traefik.http.routers.wg-easy.tls.certresolver=myresolver"
+      - "traefik.http.routers.wg-easy.rule=Host(`infraticket-wireguard.local`)"
+      - "traefik.http.routers.wg-easy.entrypoints=web"
       - "traefik.http.services.wg-easy.loadbalancer.server.port=51821"
     sysctls:
       - net.ipv4.conf.all.src_valid_mark=1
@@ -80,11 +80,14 @@ services:
     cap_add:
       - NET_ADMIN
       - SYS_MODULE
+    networks:
+      - frontend
     deploy:
      resources:
       limits:
          cpus: '1.00'
          memory: 15M
+
   # ==========================================================
   # 1. TRAEFIK v2 - Reverse Proxy (MODO LOCAL)
   # ==========================================================
@@ -93,19 +96,19 @@ services:
   # Cuando migres a cloud, solo cambiarás:
   #   - Activar entrypoint websecure (443)
   #   - Añadir certificatesresolvers para Let's Encrypt
-  #   - Cambiar los dominios .hd360.local por tu dominio real
+  #   - Cambiar los dominios .local por tu dominio real
   # ==========================================================
-  traefik:
+  infraticket.traefik:
     image: traefik:v2.11
     container_name: hd360_traefik
     depends_on:
-      - socket-proxy
+      - infraticket.socket-proxy
     command:
       - "--api.dashboard=true"
       - "--api.insecure=true"
       - "--providers.docker=true"
       - "--providers.docker.exposedbydefault=false"
-      - "--providers.docker.endpoint=tcp://socket-proxy:2375"
+      - "--providers.docker.endpoint=tcp://infraticket-socket-proxy:2375"
       - "--entrypoints.web.address=:80"
       - "--log.level=DEBUG"
       - "--accesslog=true"
@@ -114,7 +117,7 @@ services:
       - "8080:8080"
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.traefik-dashboard.rule=Host(`traefik.hd360.local`)"
+      - "traefik.http.routers.traefik-dashboard.rule=Host(`infraticket-traefik.local`)"
       - "traefik.http.routers.traefik-dashboard.entrypoints=web"
       - "traefik.http.routers.traefik-dashboard.service=api@internal"
     restart: unless-stopped
@@ -138,9 +141,10 @@ services:
   # Solo accesible desde la red backend.
   # Puerto 3306 NO se expone al host (seguridad por diseño).
   # ==========================================================
-  mariadb:
+  infraticket.mariadb:
     image: mariadb:11.7
     container_name: hd360_mariadb
+    hostname: infraticket-mariadb
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       MYSQL_DATABASE: ${MYSQL_DATABASE}
@@ -152,7 +156,7 @@ services:
       # la PRIMERA vez que arranca el contenedor (solo si la BD está vacía).
       # Aquí irá el script que crea las tablas hd360_ai_*.
       # - ./init/hd360_tables.sql:/docker-entrypoint-initdb.d/hd360_tables.sql
-      
+
     healthcheck:
       test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
       interval: 10s
@@ -176,24 +180,23 @@ services:
   # Está en frontend (para recibir tráfico) y backend (para
   # conectarse a MariaDB y OpenLDAP).
   # ==========================================================
-  glpi:
+  infraticket.glpi:
     image: diouxx/glpi:latest
     container_name: hd360_glpi
     volumes:
       - glpi_data:/var/www/html/glpi
     depends_on:
-      mariadb:
+      infraticket.mariadb:
         condition: service_healthy
     environment:
       TIMEZONE: ${TIMEZONE}
-      MARIADB_HOST: mariadb
+      MARIADB_HOST: infraticket-mariadb
       MARIADB_DATABASE: ${MYSQL_DATABASE}
       MARIADB_USER: ${MYSQL_USER}
       MARIADB_PASSWORD: ${MYSQL_PASSWORD}
     labels:
       - "traefik.enable=true"
-      # Cuando alguien accede a glpi.hd360.local → Traefik envía aquí
-      - "traefik.http.routers.glpi.rule=Host(`glpi.hd360.local`)"
+      - "traefik.http.routers.glpi.rule=Host(`infraticket-glpi.local`)"
       - "traefik.http.routers.glpi.entrypoints=web"
       - "traefik.http.services.glpi.loadbalancer.server.port=80"
       - "traefik.docker.network=heldesk-360-ha_frontend"
@@ -225,9 +228,10 @@ services:
   #       ├── cn=tecnicos_n2
   #       └── cn=usuarios
   # ==========================================================
-  openldap:
+  infraticket.openldap:
     image: osixia/openldap:1.5.0
     container_name: hd360_openldap
+    hostname: infraticket-openldap
     environment:
       LDAP_ORGANISATION: "HelpDesk 360"
       LDAP_DOMAIN: ${LDAP_DOMAIN}
@@ -261,18 +265,18 @@ services:
   # Panel gráfico para crear/editar usuarios y grupos en LDAP.
   # En producción estará protegido por VPN WireGuard.
   # ==========================================================
-  phpldapadmin:
+  infraticket.phpldapadmin:
     image: osixia/phpldapadmin:0.9.0
     container_name: hd360_phpldapadmin
     environment:
-      PHPLDAPADMIN_LDAP_HOSTS: openldap
+      PHPLDAPADMIN_LDAP_HOSTS: infraticket-openldap
       PHPLDAPADMIN_HTTPS: "false"
     depends_on:
-      openldap:
+      infraticket.openldap:
         condition: service_healthy
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.ldapadmin.rule=Host(`ldap.hd360.local`)"
+      - "traefik.http.routers.ldapadmin.rule=Host(`infraticket-ldap.local`)"
       - "traefik.http.routers.ldapadmin.entrypoints=web"
       - "traefik.http.services.ldapadmin.loadbalancer.server.port=80"
     restart: unless-stopped
@@ -297,7 +301,7 @@ services:
   #   - cadvisor:8080       → métricas de contenedores Docker
   #   - prometheus:9090     → métricas de sí mismo
   # ==========================================================
-  prometheus:
+  infraticket.prometheus:
     image: prom/prometheus:v3.2.1
     container_name: hd360_prometheus
     command:
@@ -313,7 +317,7 @@ services:
       - prometheus_data:/prometheus
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.prometheus.rule=Host(`prometheus.hd360.local`)"
+      - "traefik.http.routers.prometheus.rule=Host(`infraticket-prometheus.local`)"
       - "traefik.http.routers.prometheus.entrypoints=web"
       - "traefik.http.services.prometheus.loadbalancer.server.port=9090"
     restart: unless-stopped
@@ -336,14 +340,14 @@ services:
   # Login por defecto: admin / admin (te pide cambiarlo)
   # En producción se integrará con LDAP para SSO.
   # ==========================================================
-  grafana:
+  infraticket.grafana:
     image: grafana/grafana:11.5.2
     container_name: hd360_grafana
     environment:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
       GF_AUTH_ANONYMOUS_ENABLED: "false"
-      GF_SERVER_ROOT_URL: "http://grafana.hd360.local"
+      GF_SERVER_ROOT_URL: "http://infraticket-grafana.local"
     volumes:
       - grafana_data:/var/lib/grafana
       # Provisioning: configura Prometheus como datasource automáticamente.
@@ -353,7 +357,7 @@ services:
       - "3000:3000/tcp"
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.grafana.rule=Host(`grafana.hd360.local`)"
+      - "traefik.http.routers.grafana.rule=Host(`infraticket-grafana.local`)"
       - "traefik.http.routers.grafana.entrypoints=web"
       - "traefik.http.services.grafana.loadbalancer.server.port=3000"
     restart: unless-stopped
@@ -373,7 +377,7 @@ services:
   # Expone métricas del host: CPU, memoria, disco, red, uptime.
   # Prometheus le hace scrape cada 15s en el puerto 9100.
   # ==========================================================
-  node-exporter:
+  infraticket.node-exporter:
     image: prom/node-exporter:v1.9.0
     container_name: hd360_node_exporter
     command:
@@ -398,7 +402,7 @@ services:
   # Expone métricas de cada contenedor: CPU, RAM, red, I/O disco.
   # Prometheus le hace scrape en el puerto 8080.
   # ==========================================================
-  cadvisor:
+  infraticket.cadvisor:
     image: gcr.io/cadvisor/cadvisor:v0.51.0
     container_name: hd360_cadvisor
     volumes:
@@ -425,7 +429,7 @@ services:
   # En local funciona sin enviar notificaciones reales.
   # En producción se añadirá SMTP y webhook de Telegram.
   # ==========================================================
-  alertmanager:
+  infraticket.alertmanager:
     image: prom/alertmanager:v0.28.1
     container_name: hd360_alertmanager
     command:
@@ -436,7 +440,7 @@ services:
       - alertmanager_data:/alertmanager
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.alertmanager.rule=Host(`alertmanager.hd360.local`)"
+      - "traefik.http.routers.alertmanager.rule=Host(`infraticket-alertmanager.local`)"
       - "traefik.http.routers.alertmanager.entrypoints=web"
       - "traefik.http.services.alertmanager.loadbalancer.server.port=9093"
     restart: unless-stopped
