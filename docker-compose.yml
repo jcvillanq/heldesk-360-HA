@@ -52,10 +52,10 @@ services:
     networks:
       - socket-proxy
     deploy:
-     resources:
-      limits:
-         cpus: '1.00'
-         memory: 30M
+      resources:
+        limits:
+          cpus: '1.00'
+          memory: 30M
 
 
   infraticket.wg-easy:
@@ -83,10 +83,10 @@ services:
     networks:
       - frontend
     deploy:
-     resources:
-      limits:
-         cpus: '1.00'
-         memory: 15M
+      resources:
+        limits:
+          cpus: '1.00'
+          memory: 64M
 
   # ==========================================================
   # 1. TRAEFIK v2 - Reverse Proxy (MODO LOCAL)
@@ -156,7 +156,6 @@ services:
       # la PRIMERA vez que arranca el contenedor (solo si la BD está vacía).
       # Aquí irá el script que crea las tablas hd360_ai_*.
       # - ./init/hd360_tables.sql:/docker-entrypoint-initdb.d/hd360_tables.sql
-
     healthcheck:
       test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
       interval: 10s
@@ -166,10 +165,10 @@ services:
     networks:
       - backend
     deploy:
-     resources:
-      limits:
-         cpus: '1.00'
-         memory: 300M
+      resources:
+        limits:
+          cpus: '1.00'
+          memory: 300M
 
 
   # ==========================================================
@@ -205,10 +204,10 @@ services:
       - frontend
       - backend
     deploy:
-     resources:
-      limits:
-         cpus: '1.00'
-         memory: 90M
+      resources:
+        limits:
+          cpus: '1.00'
+          memory: 256M
 
 
   # ==========================================================
@@ -245,27 +244,19 @@ services:
       # Para cargar usuarios iniciales automáticamente:
       # - ./ldap/init:/container/service/slapd/assets/config/bootstrap/ldif/custom
     healthcheck:
-      test: [
-        "CMD",
-        "ldapsearch",
-        "-x",
-        "-H",
-        "ldap://localhost",
-        "-D",
-        "cn=admin,dc=infraticket,dc=local",
-        "-w",
-        "LdapLocal789!",
-        "-b",
-        "dc=infraticket,dc=local"
-      ]
+      test: ["CMD", "ldapsearch", "-x", "-H", "ldap://localhost", "-b", "dc=helpdesk360,dc=local", "-D", "cn=admin,dc=helpdesk360,dc=local", "-w", "${LDAP_ADMIN_PASSWORD}"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
     restart: unless-stopped
     networks:
       - backend
     deploy:
-     resources:
-      limits:
-         cpus: '1.00'
-         memory: 15GB
+      resources:
+        limits:
+          cpus: '1.00'
+          memory: 256M
 
 
   # ==========================================================
@@ -281,22 +272,22 @@ services:
       PHPLDAPADMIN_LDAP_HOSTS: infraticket-openldap
       PHPLDAPADMIN_HTTPS: "false"
     depends_on:
-      infraticket.openldap:
-        condition: service_healthy
+      - infraticket.openldap
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.ldapadmin.rule=Host(`infraticket-ldap.local`)"
       - "traefik.http.routers.ldapadmin.entrypoints=web"
       - "traefik.http.services.ldapadmin.loadbalancer.server.port=80"
+      - "traefik.docker.network=heldesk-360-ha_frontend"
     restart: unless-stopped
     networks:
       - frontend
       - backend
     deploy:
-     resources:
-      limits:
-         cpus: '1.00'
-         memory: 15G
+      resources:
+        limits:
+          cpus: '1.00'
+          memory: 64M
 
 
   # ==========================================================
@@ -329,15 +320,16 @@ services:
       - "traefik.http.routers.prometheus.rule=Host(`infraticket-prometheus.local`)"
       - "traefik.http.routers.prometheus.entrypoints=web"
       - "traefik.http.services.prometheus.loadbalancer.server.port=9090"
+      - "traefik.docker.network=heldesk-360-ha_frontend"
     restart: unless-stopped
     networks:
       - monitoring
       - frontend
     deploy:
-     resources:
-      limits:
-         cpus: '1.00'
-         memory: 15G
+      resources:
+        limits:
+          cpus: '1.00'
+          memory: 256M
 
 
   # ==========================================================
@@ -374,10 +366,10 @@ services:
       - monitoring
       - frontend
     deploy:
-     resources:
-      limits:
-         cpus: '1.00'
-         memory: 15G
+      resources:
+        limits:
+          cpus: '1.00'
+          memory: 128M
 
 
   # ==========================================================
@@ -400,10 +392,10 @@ services:
     networks:
       - monitoring
     deploy:
-     resources:
-      limits:
-         cpus: '1.00'
-         memory: 15G
+      resources:
+        limits:
+          cpus: '1.00'
+          memory: 64M
 
   # ==========================================================
   # 9. cADVISOR - Métricas de Contenedores Docker
@@ -422,10 +414,10 @@ services:
     networks:
       - monitoring
     deploy:
-     resources:
-      limits:
-         cpus: '1.00'
-         memory: 15G
+      resources:
+        limits:
+          cpus: '1.00'
+          memory: 128M
 
 
   # ==========================================================
@@ -457,10 +449,10 @@ services:
       - monitoring
       - frontend
     deploy:
-     resources:
-      limits:
-         cpus: '1.00'
-         memory: 15G
+      resources:
+        limits:
+          cpus: '1.00'
+          memory: 64M
 
 # ==========================================================
 # REDES
