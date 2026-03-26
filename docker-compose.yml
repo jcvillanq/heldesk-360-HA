@@ -361,6 +361,7 @@ services:
       - "traefik.http.routers.grafana.rule=Host(`infraticket-grafana.local`)"
       - "traefik.http.routers.grafana.entrypoints=web"
       - "traefik.http.services.grafana.loadbalancer.server.port=3000"
+      - "traefik.docker.network=heldesk-360-ha_frontend"
     restart: unless-stopped
     networks:
       - monitoring
@@ -444,6 +445,7 @@ services:
       - "traefik.http.routers.alertmanager.rule=Host(`infraticket-alertmanager.local`)"
       - "traefik.http.routers.alertmanager.entrypoints=web"
       - "traefik.http.services.alertmanager.loadbalancer.server.port=9093"
+      - "traefik.docker.network=heldesk-360-ha_frontend"
     restart: unless-stopped
     networks:
       - monitoring
