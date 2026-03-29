@@ -4,7 +4,6 @@
 # ===================================================
 #
 # Este archivo levanta TODA la infraestructura en tu portátil.
-# No necesitas Oracle Cloud, ni dominio real, ni Let's Encrypt.
 #
 # Acceso a los servicios (añade estas líneas a tu archivo hosts):
 #   127.0.0.1  infraticket-glpi.local
@@ -93,7 +92,7 @@ services:
   # ==========================================================
   # En local, Traefik funciona en modo HTTP (sin TLS/Let's Encrypt).
   # Enruta el tráfico por nombre de dominio usando el archivo hosts.
-  # Cuando migres a cloud, solo cambiarás:
+  # Cuando migremos a cloud, solo cambiarás:
   #   - Activar entrypoint websecure (443)
   #   - Añadir certificatesresolvers para Let's Encrypt
   #   - Cambiar los dominios .local por tu dominio real
@@ -134,9 +133,6 @@ services:
   # ==========================================================
   # 2. MARIADB - Base de Datos
   # ==========================================================
-  # Almacena todo: las ~300 tablas de GLPI + las 3 tablas custom
-  # del módulo IA (hd360_ai_interactions, hd360_ai_suggestions,
-  # hd360_ai_config) que se crearán mediante init script.
   #
   # Solo accesible desde la red backend.
   # Puerto 3306 NO se expone al host (seguridad por diseño).
@@ -152,10 +148,6 @@ services:
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
     volumes:
       - mariadb_data:/var/lib/mysql
-      # Scripts SQL en esta carpeta se ejecutan automáticamente
-      # la PRIMERA vez que arranca el contenedor (solo si la BD está vacía).
-      # Aquí irá el script que crea las tablas hd360_ai_*.
-      # - ./init/hd360_tables.sql:/docker-entrypoint-initdb.d/hd360_tables.sql
     healthcheck:
       test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
       interval: 10s
@@ -429,7 +421,7 @@ services:
   # y las envía por email/Telegram.
   #
   # En local funciona sin enviar notificaciones reales.
-  # En producción se añadirá SMTP y webhook de Telegram.
+  # En producción se ideo que se podria añadir SMTP y webhook de Telegram.
   # ==========================================================
   infraticket.alertmanager:
     image: prom/alertmanager:v0.28.1
