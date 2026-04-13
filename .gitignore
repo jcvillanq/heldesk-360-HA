@@ -1,0 +1,32 @@
+# ======================================================
+# HelpDesk 360 - Archivos ignorados por Git
+# ======================================================
+
+# Variables de entorno (contienen passwords reales)
+.env
+
+# Datos de volúmenes Docker
+mariadb_data/
+glpi_data/
+ldap_data/
+ldap_config/
+prometheus_data/
+grafana_data/
+alertmanager_data/
+
+# Certificados TLS
+letsencrypt/
+acme.json
+
+# Archivos de sistema
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+
+# WireGuard keys
+wireguard/
