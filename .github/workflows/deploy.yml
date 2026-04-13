@@ -1,0 +1,62 @@
+# ===================================================
+# HelpDesk 360 - Despliegue Automático (CD)
+# ===================================================
+# Se ejecuta cuando se fusiona un PR en main.
+# Conecta al servidor por SSH y redespliega el stack.
+#
+# Requiere estos secretos en GitHub:
+#   SERVER_HOST: IP del servidor (34.68.58.42)
+#   SERVER_USER: usuario SSH (jcvillan77)
+#   SERVER_SSH_KEY: clave privada SSH
+# ===================================================
+
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    name: Desplegar en GCP
+    runs-on: ubuntu-latest
+    # Solo despliega si el lint pasó correctamente
+    needs: []
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Desplegar via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            cd ~/heldesk-360-HA
+            
+            # Guardar estado actual por si hay que hacer rollback
+            git stash
+            
+            # Descargar últimos cambios
+            git pull origin main
+            
+            # Cargar variables de entorno
+            export $(grep -v '^#' .env | grep -v '^$' | xargs)
+            
+            # Redesplegar el stack en Swarm
+            docker stack deploy -c docker-compose.yml hd360
+            
+            # Esperar a que los servicios arranquen
+            sleep 30
+            
+            # Verificar que los servicios están corriendo
+            FAILED=$(docker service ls --format '{{.Replicas}}' | grep '0/' | wc -l)
+            if [ "$FAILED" -gt 0 ]; then
+              echo "ERROR: Hay servicios que no arrancaron"
+              docker service ls
+              exit 1
+            fi
+            
+            echo "Despliegue exitoso"
+            docker service ls

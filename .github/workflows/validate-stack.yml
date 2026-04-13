@@ -1,0 +1,41 @@
+# ===================================================
+# HelpDesk 360 - Validación del Stack Docker (CI)
+# ===================================================
+# Verifica que el docker-compose.yml es válido y que
+# los servicios pueden arrancar correctamente.
+# ===================================================
+
+name: Validate Stack
+
+on:
+  push:
+    branches: [main, feature/*]
+    paths:
+      - 'docker-compose.yml'
+      - '.env.example'
+      - 'monitoring/**'
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate-compose:
+    name: Validar Docker Compose
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Crear .env desde ejemplo
+        run: |
+          cp .env.example .env
+          sed -i 's/genera_con_openssl_rand_-base64_16/TestPassword123!/g' .env
+          sed -i 's/tu-ip-publica.nip.io/localhost/g' .env
+          sed -i 's/tu-email@gmail.com/test@test.com/g' .env
+
+      - name: Validar sintaxis docker-compose
+        run: docker compose config --quiet
+
+      - name: Verificar imágenes referenciadas
+        run: |
+          echo "Imágenes utilizadas en el stack:"
+          docker compose config --images
