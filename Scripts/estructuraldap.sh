@@ -1,6 +1,6 @@
 #!/bin/bash
 echo "===================================="
-echo "HD360 - Script LDAP iniciado"
+echo "HD360 - Script LDAP iniciad0"
 echo "===================================="
 CONTAINER="hd360_openldap"
 LDAP_ADMIN="cn=admin,dc=infraticket,dc=local"
