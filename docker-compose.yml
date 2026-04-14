@@ -2,7 +2,7 @@
 # HelpDesk 360 - docker-compose.yml
 # ENTORNO: GCP - Docker Swarm (Alta Disponibilidad)
 # ===================================================
-#
+# bienvenido 
 # Cluster Swarm:
 #   Manager → infraticket-server01 (10.128.0.2)
 #   Worker  → infraticket-server02 (10.128.0.3)
