@@ -1,0 +1,63 @@
+# ===================================================
+# HelpDesk 360 - Workflow de Linting (CI)
+# ===================================================
+# Se ejecuta en cada push y pull request.
+# Valida que los archivos de configuración estén
+# bien escritos antes de permitir el merge.
+# ===================================================
+
+name: Lint
+
+on:
+  push:
+    branches: [main, feature/*]
+  pull_request:
+    branches: [main]
+
+jobs:
+  yaml-lint:
+    name: Validar YAML
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Instalar yamllint
+        run: pip install yamllint
+
+      - name: Lint docker-compose.yml
+        run: yamllint -d relaxed docker-compose.yml
+
+      - name: Lint prometheus.yml
+        run: yamllint -d relaxed monitoring/prometheus/prometheus.yml
+        continue-on-error: true
+
+      - name: Lint alertmanager.yml
+        run: yamllint -d relaxed monitoring/alertmanager/alertmanager.yml
+        continue-on-error: true
+
+  docker-lint:
+    name: Validar Dockerfiles
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Buscar Dockerfiles
+        id: find
+        run: |
+          FILES=$(find . -name "Dockerfile*" -type f)
+          if [ -z "$FILES" ]; then
+            echo "No se encontraron Dockerfiles, saltando"
+            echo "found=false" >> $GITHUB_OUTPUT
+          else
+            echo "found=true" >> $GITHUB_OUTPUT
+            echo "$FILES"
+          fi
+
+      - name: Lint Dockerfiles con Hadolint
+        if: steps.find.outputs.found == 'true'
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: Dockerfile
+          failure-threshold: warning
