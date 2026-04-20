@@ -89,6 +89,7 @@ services:
         # Con dos redes (frontend + backend), Traefik necesita saber cuál usar para
         # conectar al contenedor. Siempre la frontend (donde vive él mismo).
         - "traefik.docker.network=hd360_frontend"
+        - "traefik.http.routers.ldapadmin.rule=Host(`infra-ldap.${DOMAIN}`)"
         - "traefik.http.routers.traefik-dashboard.entrypoints=websecure"
         - "traefik.http.routers.traefik-dashboard.tls.certresolver=letsencrypt"
         - "traefik.http.routers.traefik-dashboard.service=api@internal"
