@@ -25,6 +25,7 @@
 # ===================================================
 
 version: "3.8"
+
 services:
 
   # ==========================================================
@@ -88,7 +89,7 @@ services:
         # Con dos redes (frontend + backend), Traefik necesita saber cuál usar para
         # conectar al contenedor. Siempre la frontend (donde vive él mismo).
         - "traefik.docker.network=hd360_frontend"
-        - "traefik.http.routers.traefik-dashboard.rule=Host(`infra-traefik.${DOMAIN}`)"
+        - "traefik.http.routers.ldapadmin.rule=Host(`infra-ldap.${DOMAIN}`)"
         - "traefik.http.routers.traefik-dashboard.entrypoints=websecure"
         - "traefik.http.routers.traefik-dashboard.tls.certresolver=letsencrypt"
         - "traefik.http.routers.traefik-dashboard.service=api@internal"
@@ -428,27 +429,11 @@ networks:
 # con placement constraints.
 # ==========================================================
 volumes:
-  mariadb_data:
-    external: true
-    name: heldesk-360-ha_mariadb_data
-  glpi_data:
-    external: true
-    name: heldesk-360-ha_glpi_data
-  ldap_data:
-    external: true
-    name: heldesk-360-ha_ldap_data
-  ldap_config:
-    external: true
-    name: heldesk-360-ha_ldap_config
-  prometheus_data:
-    external: true
-    name: heldesk-360-ha_prometheus_data
-  grafana_data:
-    external: true
-    name: heldesk-360-ha_grafana_data
-  alertmanager_data:
-    external: true
-    name: heldesk-360-ha_alertmanager_data
-  letsencrypt_data:
-    external: true
-    name: heldesk-360-ha_letsencrypt_data
+  mariadb_data:         # Base de datos GLPI (en worker)
+  glpi_data:            # Archivos GLPI (compartido via overlay)
+  ldap_data:            # Datos LDAP (en worker)
+  ldap_config:          # Configuración LDAP (en worker)
+  prometheus_data:      # Métricas (en manager)
+  grafana_data:         # Dashboards (en manager)
+  alertmanager_data:    # Estado alertas (en manager)
+  letsencrypt_data:     # Certificados TLS (en manager)
