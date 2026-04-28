@@ -94,6 +94,10 @@ services:
         - "traefik.http.routers.traefik-dashboard.service=api@internal"
         # Traefik necesita un puerto declarado aunque sea para sí mismo
         - "traefik.http.services.traefik-dashboard.loadbalancer.server.port=8080"
+      resources:
+        limits:
+          cpus: '1.00'
+          memory: 50M
 
 
   # ==========================================================
@@ -107,10 +111,13 @@ services:
     image: mariadb:11.7
     hostname: infraticket-mariadb
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_ROOT_PASSWORD_FILE: /run/secrets/mariadb_root_password
       MYSQL_DATABASE: ${MYSQL_DATABASE}
       MYSQL_USER: ${MYSQL_USER}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_PASSWORD_FILE: /run/secrets/mariadb_user_password
+    secrets:
+      - mariadb_root_password
+      - mariadb_user_password
     volumes:
       - mariadb_data:/var/lib/mysql
     healthcheck:
@@ -129,6 +136,10 @@ services:
         condition: on-failure
         delay: 10s
         max_attempts: 5
+      resources:
+      limits:
+         cpus: '1.00'
+         memory: 300M
 
 
   # ==========================================================
@@ -150,7 +161,9 @@ services:
       MARIADB_HOST: infraticket-mariadb
       MARIADB_DATABASE: ${MYSQL_DATABASE}
       MARIADB_USER: ${MYSQL_USER}
-      MARIADB_PASSWORD: ${MYSQL_PASSWORD}
+      MARIADB_PASSWORD_FILE: /run/secrets/mariadb_user_password
+    secrets:
+      - mariadb_user_password
     networks:
       - frontend
       - backend
@@ -177,6 +190,10 @@ services:
         - "traefik.http.services.glpi.loadbalancer.server.port=80"
         - "traefik.http.services.glpi.loadbalancer.sticky.cookie=true"
         - "traefik.http.services.glpi.loadbalancer.sticky.cookie.name=hd360_glpi_replica"
+      resources:
+      limits:
+         cpus: '1.00'
+         memory: 90M
 
   # ==========================================================
   # 4. OPENLDAP - Directorio de Autenticación Centralizada
@@ -212,6 +229,10 @@ services:
         condition: on-failure
         delay: 10s
         max_attempts: 5
+      resources:
+      limits:
+         cpus: '1.00'
+         memory: 15GB
 
 
   # ==========================================================
@@ -244,6 +265,10 @@ services:
         - "traefik.http.routers.ldapadmin.entrypoints=websecure"
         - "traefik.http.routers.ldapadmin.tls.certresolver=letsencrypt"
         - "traefik.http.services.ldapadmin.loadbalancer.server.port=80"
+      resources:
+      limits:
+         cpus: '1.00'
+         memory: 15G
 
 
   # ==========================================================
@@ -282,6 +307,10 @@ services:
         - "traefik.http.routers.prometheus.entrypoints=websecure"
         - "traefik.http.routers.prometheus.tls.certresolver=letsencrypt"
         - "traefik.http.services.prometheus.loadbalancer.server.port=9090"
+      resources:
+      limits:
+         cpus: '1.00'
+         memory: 15G
 
 
   # ==========================================================
@@ -316,6 +345,10 @@ services:
         - "traefik.http.routers.grafana.entrypoints=websecure"
         - "traefik.http.routers.grafana.tls.certresolver=letsencrypt"
         - "traefik.http.services.grafana.loadbalancer.server.port=3000"
+      resources:
+      limits:
+         cpus: '1.00'
+         memory: 15G
 
 
   # ==========================================================
@@ -344,6 +377,10 @@ services:
       restart_policy:
         condition: on-failure
         delay: 5s
+      resources:
+      limits:
+         cpus: '1.00'
+         memory: 15G
 
 
   # ==========================================================
@@ -365,6 +402,10 @@ services:
       restart_policy:
         condition: on-failure
         delay: 5s
+      resources:
+      limits:
+         cpus: '1.00'
+         memory: 15G
 
 
   # ==========================================================
@@ -395,6 +436,10 @@ services:
         - "traefik.http.routers.alertmanager.entrypoints=websecure"
         - "traefik.http.routers.alertmanager.tls.certresolver=letsencrypt"
         - "traefik.http.services.alertmanager.loadbalancer.server.port=9093"
+      resources:
+      limits:
+         cpus: '1.00'
+         memory: 15G
 
 
 # ==========================================================
@@ -452,3 +497,9 @@ volumes:
   letsencrypt_data:
     external: true
     name: heldesk-360-ha_letsencrypt_data
+
+secrets:
+  mariadb_root_password:
+    file: ./secrets/mariadb_root_password.txt
+  mariadb_user_password:
+    file: ./secrets/mariadb_user_password.txt
