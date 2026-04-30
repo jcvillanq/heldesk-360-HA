@@ -137,9 +137,9 @@ services:
         delay: 10s
         max_attempts: 5
       resources:
-      limits:
-         cpus: '1.00'
-         memory: 300M
+        limits:
+          cpus: '1.00'
+          memory: 300M
 
 
   # ==========================================================
@@ -191,9 +191,9 @@ services:
         - "traefik.http.services.glpi.loadbalancer.sticky.cookie=true"
         - "traefik.http.services.glpi.loadbalancer.sticky.cookie.name=hd360_glpi_replica"
       resources:
-      limits:
-         cpus: '1.00'
-         memory: 90M
+        limits:
+          cpus: '1.00'
+          memory: 90M
 
   # ==========================================================
   # 4. OPENLDAP - Directorio de Autenticación Centralizada
@@ -230,9 +230,9 @@ services:
         delay: 10s
         max_attempts: 5
       resources:
-      limits:
-         cpus: '1.00'
-         memory: 15GB
+        limits:
+          cpus: '1.00'
+          memory: 15GB
 
 
   # ==========================================================
@@ -266,9 +266,9 @@ services:
         - "traefik.http.routers.ldapadmin.tls.certresolver=letsencrypt"
         - "traefik.http.services.ldapadmin.loadbalancer.server.port=80"
       resources:
-      limits:
-         cpus: '1.00'
-         memory: 15G
+        limits:
+          cpus: '1.00'
+          memory: 15G
 
 
   # ==========================================================
@@ -308,9 +308,9 @@ services:
         - "traefik.http.routers.prometheus.tls.certresolver=letsencrypt"
         - "traefik.http.services.prometheus.loadbalancer.server.port=9090"
       resources:
-      limits:
-         cpus: '1.00'
-         memory: 15G
+        limits:
+          cpus: '1.00'
+          memory: 15G
 
 
   # ==========================================================
@@ -346,9 +346,9 @@ services:
         - "traefik.http.routers.grafana.tls.certresolver=letsencrypt"
         - "traefik.http.services.grafana.loadbalancer.server.port=3000"
       resources:
-      limits:
-         cpus: '1.00'
-         memory: 15G
+        limits:
+          cpus: '1.00'
+          memory: 15G
 
 
   # ==========================================================
@@ -378,9 +378,9 @@ services:
         condition: on-failure
         delay: 5s
       resources:
-      limits:
-         cpus: '1.00'
-         memory: 15G
+        limits:
+          cpus: '1.00'
+          memory: 15G
 
 
   # ==========================================================
@@ -403,9 +403,9 @@ services:
         condition: on-failure
         delay: 5s
       resources:
-      limits:
-         cpus: '1.00'
-         memory: 15G
+        limits:
+          cpus: '1.00'
+          memory: 15G
 
 
   # ==========================================================
@@ -437,9 +437,9 @@ services:
         - "traefik.http.routers.alertmanager.tls.certresolver=letsencrypt"
         - "traefik.http.services.alertmanager.loadbalancer.server.port=9093"
       resources:
-      limits:
-         cpus: '1.00'
-         memory: 15G
+        limits:
+          cpus: '1.00'
+          memory: 15G
 
 
 # ==========================================================
