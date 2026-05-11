@@ -16,12 +16,7 @@
 #   - Ver logs: docker service logs hd360_SERVICIO
 #
 # Acceso a los servicios:
-#   https://infra-glpi.34.68.58.42.nip.io
-#   https://infra-traefik.34.68.58.42.nip.io
-#   https://infra-ldap.34.68.58.42.nip.io
-#   https://infra-grafana.34.68.58.42.nip.io
-#   https://infra-prometheus.34.68.58.42.nip.io
-#   https://infra-alertmanager.34.68.58.42.nip.io
+#   https://infra-traefik.34.16.3.100.nip.io
 # ===================================================
 
 version: "3.8"
@@ -443,7 +438,39 @@ services:
         limits:
           cpus: '1.00'
           memory: 15G
-
+  portal:
+    image: portal-hd360:latest
+    environment:
+      - APP_NAME=HelpDesk 360 Portal
+      - APP_ENV=production
+      - APP_DEBUG=false
+      - APP_URL=https://infra-portal.${DOMAIN}
+      - FORCE_HTTPS=true
+      - ASSET_URL=https://infra-portal.${DOMAIN}
+      - APP_KEY=${PORTAL_APP_KEY}
+      - DB_CONNECTION=sqlite
+      - DB_DATABASE=/var/www/html/database/database.sqlite
+      - GLPI_BASE_URL=https://infra-glpi.${DOMAIN}/api.php/v2
+      - GLPI_CLIENT_ID=${GLPI_CLIENT_ID}
+      - GLPI_CLIENT_SECRET=${GLPI_CLIENT_SECRET}
+      - GLPI_USERNAME=${GLPI_USERNAME}
+      - GLPI_PASSWORD=${GLPI_PASSWORD}
+      - GLPI_ENABLED=true
+    volumes:
+      - portal_sqlite:/var/www/html/database
+    networks:
+      - frontend
+    deploy:
+      replicas: 1
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.portal.rule=Host(`infra-portal.${DOMAIN}`)"
+        - "traefik.http.routers.portal.entrypoints=websecure"
+        - "traefik.http.routers.portal.tls=true"
+        - "traefik.http.routers.portal.tls.certresolver=letsencrypt"
+        - "traefik.http.services.portal.loadbalancer.server.port=80"
+      restart_policy:
+        condition: on-failure
 
 # ==========================================================
 # REDES OVERLAY
@@ -500,6 +527,9 @@ volumes:
   letsencrypt_data:
     external: true
     name: heldesk-360-ha_letsencrypt_data
+  portal_sqlite:
+    external: true
+    name: heldesk-360-ha_portal_sqlite
 
 secrets:
   mariadb_root_password:
