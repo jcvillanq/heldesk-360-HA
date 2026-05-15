@@ -26,7 +26,7 @@
 
 **HelpDesk 360** es un Trabajo de Fin de Grado (TFG) del ciclo ASIR que despliega una plataforma completa de gestión de incidencias y soporte técnico basada en **GLPI**, orquestada con **Docker Swarm** en un entorno cloud real sobre **Google Cloud Platform**.
 
-El proyecto va más allá de instalar un software de ticketing: su valor reside en la infraestructura empresarial construida para sostenerlo, protegerlo, monitorizarlo y garantizar su disponibilidad continua, complementada con un módulo de **inteligencia artificial** que asiste tanto a usuarios finales como a técnicos.
+El proyecto va más allá de instalar un software de ticketing: su valor reside en la infraestructura empresarial construida para sostenerlo, protegerlo, monitorizarlo y garantizar su disponibilidad continua,
 
 ### Características principales
 
@@ -36,8 +36,6 @@ El proyecto va más allá de instalar un software de ticketing: su valor reside 
 | ⚡ **Alta disponibilidad** | Cluster multi-nodo con failover automático y balanceo de carga |
 | 🔒 **Seguridad multicapa** | TLS automático, firewall, VPN WireGuard y autenticación centralizada LDAP |
 | 📊 **Monitorización** | Stack completo Prometheus + Grafana + Alertmanager con dashboards en tiempo real |
-| 🤖 **Inteligencia Artificial** | Chatbot para usuarios y asistente de clasificación para técnicos |
-| 🔄 **CI/CD** | Pipeline GitHub Actions con lint, validación y despliegue automático |
 | 💾 **Backups** | Copias de seguridad automatizadas con cifrado GPG y almacenamiento externo |
 
 ---
